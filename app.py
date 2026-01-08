@@ -4,7 +4,7 @@ from data_engine import fetch_base_data
 
 st.set_page_config(page_title="Predictive Range Model", layout="wide")
 
-# 1. THEME & STYLING (Rule 5 & 14)
+# 1. THEME & GOLD GLOW STYLING (Rule 5 & 14)
 theme = st.sidebar.radio("Theme Mode", ["Dark Mode", "Light Mode"])
 bg = "#000000" if theme == "Dark Mode" else "#FFFFFF"
 txt = "#FFFFFF" if theme == "Dark Mode" else "#000000"
@@ -14,6 +14,16 @@ st.markdown(f"""<style>
     .stApp {{ background-color: {bg}; color: {txt} !important; }} 
     [data-testid="stMetricValue"] {{ color: {txt} !important; font-family: 'monospace'; }}
     [data-testid="stMetricLabel"] {{ color: {accent} !important; }}
+    
+    /* The Gold Glow Effect */
+    .glow-gold {{ 
+        color: {accent}; 
+        font-weight: bold; 
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.8), 0 0 20px rgba(212, 175, 55, 0.4);
+        font-family: 'Courier New', monospace;
+        font-size: 24px;
+    }}
+    
     .predictive-box {{ border: 2px solid {accent}; padding: 20px; border-radius: 10px; background: {"#050505" if theme=="Dark Mode" else "#f9f9f9"}; margin-bottom: 20px; }}
     .forecast-display {{ background-color: {"#111" if theme=="Dark Mode" else "#eee"}; padding: 15px; border-radius: 8px; border-left: 5px solid {accent}; margin-bottom: 20px; }}
     .styled-table {{ width:100%; border-collapse: collapse; margin-top: 10px; }}
@@ -40,7 +50,7 @@ if status:
     leverage = st.sidebar.slider("Leverage", 1.0, 5.0, 1.5)
     bias = st.sidebar.selectbox("Market Bias", ["Bullish 🚀", "Neutral ⚖️", "Bearish 📉"])
 
-    # 4. RULE 3: THE SOUL - AUTO-FORECASTER CALCULATION
+    # 4. RULE 3: AUTO-FORECASTER (The Core Engine)
     mult = 2.2 if bias == "Bullish 🚀" else 3.2 if bias == "Bearish 📉" else 2.7
     auto_l = price - (daily_atr * mult)
     auto_h = price + (daily_atr * mult)
@@ -49,18 +59,20 @@ if status:
     # 5. LIQUIDATION CALC (Rule 6)
     liq_p = price * (1 - (1 / leverage) * 0.45)
 
-    # 6. AUTO-FORECASTER DISPLAY (The Missing Section)
+    # 6. GLOWING FORECAST DISPLAY (Rule 3 Restored)
     st.markdown(f"""
     <div class="forecast-display">
         <h3 style="margin:0; color:{accent};">📡 DefiTuna Auto-Forecaster Range</h3>
-        <p style="font-size: 20px; margin: 10px 0;">
-            Based on <b>{bias}</b> bias and <b>{mult}x ATR</b>, the predicted range is: 
-            <span style="color:{accent}; font-family:monospace;">${auto_l:,.2f} — ${auto_h:,.2f}</span>
+        <p style="font-size: 18px; margin: 10px 0;">
+            Sentiment: <b>{bias}</b> | Multiplier: <b>{mult}x ATR</b>
         </p>
+        <div style="margin-top: 10px;">
+            <span class="glow-gold">${auto_l:,.2f} — ${auto_h:,.2f}</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 7. INTERACTIVE MANUAL RANGE BOX
+    # 7. INTERACTIVE MANUAL RANGE BOX (Rule 17)
     st.markdown('<div class="predictive-box">', unsafe_allow_html=True)
     st.subheader("✍️ Manual Custom Range Adjustment")
     
@@ -74,6 +86,7 @@ if status:
     with col_r2:
         st.metric("LIQUIDATION FLOOR", f"${liq_p:,.2f}")
 
+    # RULE 7: COLLISION ALERT
     if m_l <= liq_p:
         st.error(f"⚠️ COLLISION ALERT: Manual Low is below Liquidation Price!")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -82,6 +95,7 @@ if status:
     st.subheader("📊 Dynamic Yield Comparison Matrix")
     
     def get_matrix(width_to_use):
+        # The DefiTuna Profit Formula
         base_daily = (capital * leverage * 0.0017) * ((price * 0.35) / width_to_use)
         return {
             "1 Hour": base_daily / 24, "3 Hour": (base_daily / 24) * 3,
@@ -99,6 +113,7 @@ if status:
 
     with t_col2:
         st.markdown("#### ✍️ Manual Range Table")
+        # DYNAMIC BINDING: Calculates based on 'manual_w' from the slider
         manual_res = get_matrix(manual_w)
         rows_m = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td><td>{(v/capital)*100:.2f}%</td></tr>" for k, v in manual_res.items()])
         st.markdown(f'<table class="styled-table"><tr><th>Time</th><th>Profit</th><th>ROI</th></tr>{rows_m}</table>', unsafe_allow_html=True)
@@ -112,4 +127,5 @@ if status:
         st.sidebar.error("❌ NON-COMPLIANT")
     
     st.sidebar.divider()
+    # Link back to Main Hub
     st.sidebar.link_button("🔙 Main Hub", "https://defi-tuna-apper-bohsifbb9dawewnwd56uo5.streamlit.app/")
