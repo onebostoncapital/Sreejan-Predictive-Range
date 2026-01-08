@@ -18,12 +18,15 @@ st.markdown(f"""<style>
         background: {"#050505" if theme=="Dark Mode" else "#f9f9f9"}; 
         box-shadow: 0 4px 20px rgba(212, 175, 55, 0.1); margin-bottom: 25px;
     }}
+    .liquidation-box {{ background: #440000; border: 1px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; }}
     .tag {{ background: #222; color: {accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; border: 1px solid {accent}; margin-right: 8px; }}
     .styled-table {{ width:100%; border-collapse: collapse; margin-top: 15px; }}
     .styled-table th, .styled-table td {{ border: 1px solid #444; padding: 12px; text-align: center; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. INTELLIGENCE ENGINES
+# 2. DATA & ATR ENGINE
+df, btc_p, _, status = fetch_base_data('1d')
+
 def calculate_atr_series(df, period=14):
     h_l = df['high'] - df['low']
     h_c = np.abs(df['high'] - df['close'].shift())
@@ -31,35 +34,26 @@ def calculate_atr_series(df, period=14):
     tr = pd.concat([h_l, h_c, l_c], axis=1).max(axis=1)
     return tr.rolling(period).mean()
 
-def get_live_news_sentiment():
-    try:
-        url = "https://min-api.cryptocompare.com/data/v2/news/?categories=SOL&excludeCategories=Sponsored"
-        data = requests.get(url).json()['Data'][:3]
-        titles = " ".join([n['title'].lower() for n in data])
-        score = sum([1 for word in ['bull', 'surge', 'pump', 'high', 'buy'] if word in titles])
-        return score, data
-    except: return 0, []
-
-# 3. DATA PROCESSING
-df, btc_p, _, status = fetch_base_data('1d')
-
 if status:
     df['atr_val'] = calculate_atr_series(df)
     price = df['close'].iloc[-1]
     current_atr = df['atr_val'].iloc[-1]
     
-    # AI LAYER 1: V-Pulse (Volatility Pulse)
+    # 3. SIDEBAR RISK CONTROLS (Rule 6 - Liquidation Soul)
+    st.sidebar.header("Risk Settings")
+    cap = st.sidebar.number_input("Capital ($)", value=10000.0)
+    lev = st.sidebar.slider("Leverage", 1.0, 5.0, 1.5)
+    
+    # CRITICAL: LIQUIDATION CALCULATION (Rule 6)
+    liq_p = price * (1 - (1 / lev) * 0.45)
+    
+    # 4. AI INTELLIGENCE LAYERS (Sentiment & V-Pulse)
     avg_atr_5d = df['atr_val'].tail(5).mean()
     v_pulse = "COILING (Breakout Risk)" if current_atr < avg_atr_5d else "EXPANDING"
-    
-    # AI LAYER 2: News Sentiment
-    news_score, news_data = get_live_news_sentiment()
-    
-    # AI LAYER 3: BTC Correlation
     btc_corr = "SUPPORTIVE" if btc_p > (btc_p * 0.98) else "DRAGGING"
-
-    # AI LAYER 4: Autonomous Bias Decision (The Soul)
-    if (price > df['20_ema'].iloc[-1]) or (news_score > 0):
+    
+    # Bias Engine (Rule 3.1)
+    if price > df['20_ema'].iloc[-1] and btc_corr == "SUPPORTIVE":
         ai_bias, ai_mult = "Bullish 🚀", 2.2
     elif btc_corr == "DRAGGING" or v_pulse == "COILING (Breakout Risk)":
         ai_bias, ai_mult = "Bearish 📉", 3.2
@@ -68,12 +62,12 @@ if status:
 
     # UNIVERSAL PRICE BANNER (Rule 13)
     c1, c2, c3 = st.columns(3)
-    c1.metric("₿ BTC", f"${btc_p:,.2f}", help="Bitcoin's price often dictates market direction.")
-    c2.metric("S SOL", f"${price:,.2f}", help="The live price of Solana.")
-    c3.metric("DAILY ATR", f"{current_atr:.2f}", help="Measures the average daily movement (Volatility).")
+    c1.metric("₿ BTC", f"${btc_p:,.2f}")
+    c2.metric("S SOL", f"${price:,.2f}")
+    c3.metric("ATR (14d)", f"{current_atr:.2f}")
     st.divider()
 
-    # 4. THE AI INTELLIGENCE DASHBOARD (Rule 3 & 27)
+    # 5. THE AI INTELLIGENCE DASHBOARD (Glow Soul)
     auto_l = price - (current_atr * ai_mult)
     auto_h = price + (current_atr * ai_mult)
     auto_w = max(auto_h - auto_l, 0.01)
@@ -81,39 +75,37 @@ if status:
     st.markdown(f"""
     <div class="ai-intelligence-card">
         <div style="margin-bottom: 15px;">
-            <span class="tag">AI SENTIMENT</span>
-            <span class="tag">V-PULSE AI</span>
-            <span class="tag">BTC-CORRELATION</span>
-            <span class="tag">LIQUIDATION-SHARK</span>
+            <span class="tag">V-PULSE: {v_pulse}</span>
+            <span class="tag">LIQUIDATION SAFETY: 45%</span>
         </div>
-        <h2 style="margin:0; color:{accent};">📡 Autonomous Strategic Forecast: {ai_bias}</h2>
-        <p style="opacity:0.8; margin-top:10px;">
-            AI detected <b>{v_pulse}</b> volatility and <b>{btc_corr}</b> BTC correlation. 
-            News Sentiment Score: <b>{news_score}/3</b>.
-        </p>
-        <div style="margin: 25px 0;">
-            <span style="font-size: 14px; opacity:0.6; letter-spacing: 1px;">AUTONOMOUS YIELD ZONE ({ai_mult}x ATR):</span><br>
-            <span class="glow-gold">${auto_l:,.2f} — ${auto_h:,.2f}</span>
-        </div>
-        <div style="font-size: 12px; opacity:0.6; border-top: 1px solid #333; padding-top: 10px;">
-            <b>Live Intelligence Feed:</b><br>
-            {"<br>".join([f"• {n['title'][:90]}..." for n in news_data]) if news_data else "Fetching news signals..."}
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <h2 style="margin:0; color:{accent};">📡 Strategic AI Forecast: {ai_bias}</h2>
+                <div style="margin: 20px 0;">
+                    <span style="font-size: 14px; opacity:0.6; letter-spacing: 1px;">AUTONOMOUS YIELD ZONE ({ai_mult}x ATR):</span><br>
+                    <span class="glow-gold">${auto_l:,.2f} — ${auto_h:,.2f}</span>
+                </div>
+            </div>
+            <div class="liquidation-box">
+                <span style="color: #ff4b4b; font-size: 12px; font-weight: bold;">LIQUIDATION PRICE</span><br>
+                <span style="color: white; font-size: 24px; font-family: monospace;">${liq_p:,.2f}</span>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 5. SIDEBAR & MANUAL ADJUSTMENT (Rule 6 & 17)
-    st.sidebar.header("Capital & Leverage")
-    cap = st.sidebar.number_input("Capital ($)", value=10000.0)
-    lev = st.sidebar.slider("Leverage", 1.0, 5.0, 1.5)
-    liq_p = price * (1 - (1 / lev) * 0.45)
-    
-    m_l, m_h = st.slider("Manual Range Adjustment", float(price*0.1), float(price*1.9), 
-                         (float(auto_l), float(auto_h)), step=0.1,
-                         help="Slide to customize. The Auditor will check your safety.")
+    # 6. INTERACTIVE RANGE ADJUSTMENT (Rule 17)
+    st.markdown('<div class="ai-intelligence-card" style="padding: 15px;">', unsafe_allow_html=True)
+    st.subheader("✍️ Manual Custom Range Adjustment")
+    m_l, m_h = st.slider("Fine-Tune Manual Zone", float(price*0.1), float(price*1.9), (float(auto_l), float(auto_h)), step=0.1)
     manual_w = max(m_h - m_l, 0.01)
+    
+    # RULE 7: COLLISION AUDIT
+    if m_l <= liq_p:
+        st.error(f"⚠️ CRITICAL ALERT: Your Manual Low (${m_l:,.2f}) has crossed the Liquidation Floor (${liq_p:,.2f})!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # 6. DUAL PROFITABILITY MATRICES (Rule 17, 21, 22)
+    # 7. DUAL PROFITABILITY MATRICES (Rule 22)
     def get_matrix(width):
         base = (cap * lev * 0.0017) * ((price * 0.35) / width)
         return {"1 Hour": base/24, "1 Day": base, "1 Week": base*7, "1 Month": base*30}
@@ -131,8 +123,9 @@ if status:
         rows_m = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td><td>{(v/cap)*100:.2f}%</td></tr>" for k, v in res_m.items()])
         st.markdown(f'<table class="styled-table"><tr><th>Horizon</th><th>Profit</th><th>ROI</th></tr>{rows_m}</table>', unsafe_allow_html=True)
 
-    # 7. NAVIGATION & AUDITOR
+    # 8. AUDITOR & NAVIGATION
     st.sidebar.divider()
+    st.sidebar.metric("LIQUIDATION FLOOR", f"${liq_p:,.2f}")
     if m_l > liq_p: st.sidebar.success("✅ STRATEGY COMPLIANT")
     else: st.sidebar.error("❌ NON-COMPLIANT")
     st.sidebar.link_button("🔙 Main Hub", "https://defi-tuna-apper-bohsifbb9dawewnwd56uo5.streamlit.app/")
