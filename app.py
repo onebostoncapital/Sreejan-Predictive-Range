@@ -17,39 +17,33 @@ st.markdown(f"""<style>
     .manual-card {{ border: 2px solid #555; padding: 25px; border-radius: 15px; background: {"#0a0a0a" if theme=="Dark Mode" else "#f0f0f0"}; margin-bottom: 25px; }}
     .liq-box {{ background: #440000; border: 1px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; color: white; }}
     .tag {{ background: #222; color: {accent}; padding: 3px 10px; border-radius: 12px; font-size: 11px; border: 1px solid {accent}; margin-right: 8px; }}
-    .news-ticker {{ background: rgba(212, 175, 55, 0.1); border: 1px dashed {accent}; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; }}
-    .news-link {{ color: {accent} !important; text-decoration: none; font-weight: bold; }}
+    .news-ticker {{ background: rgba(212, 175, 55, 0.1); border: 1px dashed {accent}; padding: 10px; border-radius: 8px; margin-top: 15px; }}
     .styled-table {{ width:100%; border-collapse: collapse; margin-top: 15px; }}
     .styled-table td {{ border: 1px solid #444; padding: 12px; text-align: center; }}
     .gauge-container {{ width: 100%; background-color: #333; border-radius: 10px; margin: 20px 0; height: 15px; position: relative; border: 1px solid #555; }}
     .price-marker {{ position: absolute; top: -8px; height: 30px; width: 4px; background-color: #FFF; box-shadow: 0 0 10px #FFF; z-index: 10; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. DATA & INTELLIGENCE ENGINES
+# 2. DATA & ATR ENGINE
 df, btc_p, _, status = fetch_base_data('1d')
 
 def calculate_atr(df):
-    h_l = df['high'] - df['low']
-    h_c = np.abs(df['high'] - df['close'].shift())
-    l_c = np.abs(df['low'] - df['close'].shift())
+    h_l, h_c, l_c = df['high']-df['low'], np.abs(df['high']-df['close'].shift()), np.abs(df['low']-df['close'].shift())
     tr = pd.concat([h_l, h_c, l_c], axis=1).max(axis=1)
     return tr.rolling(14).mean().iloc[-1]
 
-def get_live_intelligence():
+def get_live_news():
     try:
         url = "https://min-api.cryptocompare.com/data/v2/news/?categories=SOL&excludeCategories=Sponsored"
-        data = requests.get(url).json()['Data'][:3]
-        titles = " ".join([n['title'].lower() for n in data])
-        sentiment = "Bullish" if any(x in titles for x in ['surge', 'buy', 'pump', 'growth', 'up']) else "Neutral"
-        return sentiment, data
-    except: return "Neutral", []
+        return requests.get(url).json()['Data'][:3]
+    except: return []
 
 if status:
     price = df['close'].iloc[-1]
     current_atr = calculate_atr(df)
-    news_bias, news_list = get_live_intelligence()
+    news_items = get_live_news()
     
-    # V-Pulse & BTC Correlation (Rule 23)
+    # AI INTELLIGENCE: V-Pulse & BTC Correlation (Rule 23)
     v_pulse = "COILING" if current_atr < (df['high'].tail(5).mean() * 0.04) else "EXPANDING"
     btc_corr = "SUPPORTIVE" if btc_p > (btc_p * 0.985) else "DRAGGING"
 
@@ -67,26 +61,19 @@ if status:
     st.divider()
 
     # 5. SECTION A: AI COMMAND CENTER + NEWS TICKER
-    if price > df['20_ema'].iloc[-1] and news_bias == "Bullish":
-        ai_bias, ai_mult = "Strong Bullish 🚀", 2.2
-    elif v_pulse == "COILING" or btc_corr == "DRAGGING":
-        ai_bias, ai_mult = "Precautionary Bearish 📉", 3.2
-    else:
-        ai_bias, ai_mult = "Neutral ⚖️", 2.7
-
-    auto_l = price - (current_atr * ai_mult)
-    auto_h = price + (current_atr * ai_mult)
+    # Bias logic strictly based on ATR soul
+    ai_mult = 3.2 if (v_pulse == "COILING" or btc_corr == "DRAGGING") else 2.2
+    auto_l, auto_h = price - (current_atr * ai_mult), price + (current_atr * ai_mult)
     
     st.markdown(f"""
     <div class="ai-card">
-        <div style="margin-bottom: 15px;">
-            <span class="tag">NEWS: {news_bias.upper()}</span>
+        <div style="margin-bottom: 10px;">
             <span class="tag">V-PULSE: {v_pulse}</span>
             <span class="tag">BTC: {btc_corr}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
             <div>
-                <h2 style="margin:0; color:{accent};">🤖 AI Autonomous Forecast: {ai_bias}</h2>
+                <h2 style="margin:0; color:{accent};">🤖 AI Autonomous Forecast</h2>
                 <div style="margin: 15px 0;">
                     <span style="font-size: 14px; opacity:0.6;">SUGGESTED RANGE ({ai_mult}x ATR):</span><br>
                     <span class="glow-gold">${auto_l:,.2f} — ${auto_h:,.2f}</span>
@@ -99,26 +86,18 @@ if status:
         </div>
         <div class="news-ticker">
             <b style="color:{accent};">⚡ LIVE SOLANA NEWS:</b><br>
-            {"".join([f'<div style="margin-top:5px;">• {n["title"]} <a class="news-link" href="{n["url"]}" target="_blank">[Read More]</a></div>' for n in news_list]) if news_list else "Scanning headlines..."}
+            {"".join([f'<div style="margin-top:5px;">• {n["title"]} <a style="color:{accent};" href="{n["url"]}" target="_blank">[Read]</a></div>' for n in news_items]) if news_items else "No signals."}
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 6. SECTION B: ISOLATED MANUAL ENGINE (Sovereign Controls)
+    # 6. SECTION B: ISOLATED MANUAL ENGINE (The Profitability Fix)
     st.markdown('<div class="manual-card">', unsafe_allow_html=True)
     st.subheader("✍️ Manual Range Control & Profitability Engine")
     
-    if 'man_low' not in st.session_state: st.session_state.man_low = float(auto_l)
-    if 'man_high' not in st.session_state: st.session_state.man_high = float(auto_h)
-
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        m_l = st.slider("Set Manual Low Boundary", float(price*0.4), float(price), st.session_state.man_low, step=0.01)
-        st.session_state.man_low = m_l
-    with col_m2:
-        m_h = st.slider("Set Manual High Boundary", float(price), float(price*1.6), st.session_state.man_high, step=0.01)
-        st.session_state.man_high = m_h
-
+    # Persistent Sliders that drive the Matrix
+    m_range = st.slider("Set Manual Range Boundary", float(price*0.3), float(price*1.7), (float(auto_l), float(auto_h)), step=0.01)
+    m_l, m_h = m_range
     manual_w = max(m_h - m_l, 0.01)
 
     # VISUAL GAUGE (Rule 28)
@@ -137,23 +116,25 @@ if status:
     """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 7. THE DUAL-MATRIX PROFIT CALCULATOR (Rule 17)
-    def get_matrix(width):
-        daily = (cap * lev * 0.0017) * ((price * 0.35) / width)
+    # 7. THE DUAL-MATRIX RE-CALCULATOR (Fixed Sovereignty)
+    def calculate_yield_table(width_val):
+        # DefiTuna Formula: Capital * Leverage * 0.17% * (Price Sensitivity / Width)
+        daily = (cap * lev * 0.0017) * ((price * 0.35) / width_val)
         return {"1 Hour": daily/24, "1 Day": daily, "1 Week": daily*7, "1 Month": daily*30}
 
-    st.subheader("📊 Profitability Comparison")
+    st.subheader("📊 Profitability Comparison Matrix")
     t1, t2 = st.columns(2)
     
     with t1:
-        st.markdown(f"#### 🤖 AI Suggested ({ai_mult}x)")
-        res_a = get_matrix(auto_h - auto_l)
+        st.markdown(f"#### 🤖 AI Suggested Range")
+        res_a = calculate_yield_table(auto_h - auto_l)
         rows_a = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td><td>{(v/cap)*100:.2f}%</td></tr>" for k, v in res_a.items()])
         st.markdown(f'<table class="styled-table">{rows_a}</table>', unsafe_allow_html=True)
 
     with t2:
         st.markdown("#### ✍️ Manual Custom Range")
-        res_m = get_matrix(manual_w)
+        # CRITICAL FIX: Explicitly linked to the slider variables m_l and m_h
+        res_m = calculate_yield_table(manual_w)
         rows_m = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td><td>{(v/cap)*100:.2f}%</td></tr>" for k, v in res_m.items()])
         st.markdown(f'<table class="styled-table" style="border: 1px solid {accent};">{rows_m}</table>', unsafe_allow_html=True)
 
