@@ -13,7 +13,6 @@ except ImportError:
     NEWS_READY = False
 
 # MAGIC COMMAND:
-# pip install feedparser
 # streamlit run app.py
 
 st.set_page_config(page_title="Sreejan AI Sentinel Pro", layout="wide")
@@ -24,12 +23,14 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;700&display=swap');
     .stApp { background: radial-gradient(circle at top right, #0a0e17, #010203); font-family: 'Inter', sans-serif; color: #E0E0E0 !important; }
     .ribbon { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; margin-bottom: 25px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    .ai-card { background: linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(0, 0, 0, 0.9)); border-left: 5px solid var(--b-col); padding: 30px; border-radius: 16px; position: relative; margin-bottom: 30px; box-shadow: inset 0 0 15px var(--b-col); }
-    .metric-val { font-family: 'JetBrains Mono', monospace; font-size: 42px; font-weight: 700; }
-    .label-tag { background: var(--b-col); color: #000; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 50px; text-transform: uppercase; }
-    .news-card { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; }
-    .news-card:hover { background: rgba(255,255,255,0.1); border-color: #7B00FF; }
-    .news-link { color: #BB86FC !important; text-decoration: none; font-weight: bold; font-size: 14px; }
+    .ai-card { background: linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(0, 0, 0, 0.9)); border-left: 5px solid var(--b-col); padding: 30px; border-radius: 16px; position: relative; margin-bottom: 30px; box-shadow: inset 0 0 20px var(--b-col); }
+    .metric-val { font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 700; letter-spacing: -2px; }
+    .label-tag { background: var(--b-col); color: #000; font-size: 11px; font-weight: 900; padding: 4px 12px; border-radius: 50px; text-transform: uppercase; }
+    .news-footer { background: rgba(255,255,255,0.02); padding: 25px; border-radius: 15px; border-top: 1px solid rgba(123, 0, 255, 0.2); margin-top: 40px; }
+    .news-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
+    .news-card { background: rgba(255,255,255,0.04); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; height: 100%; }
+    .news-card:hover { background: rgba(123, 0, 255, 0.05); border-color: #7B00FF; transform: translateY(-3px); }
+    .news-link { color: #BB86FC !important; text-decoration: none; font-weight: bold; font-size: 14px; display: block; margin-top: 8px; }
     .sentinel-box { background: rgba(123, 0, 255, 0.08); border-radius: 8px; padding: 12px; border: 1px solid rgba(123, 0, 255, 0.3); margin-top: 15px; color: #C197FF; font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
@@ -40,7 +41,7 @@ def fetch_news():
     if not NEWS_READY: return []
     try:
         feed = feedparser.parse("https://cointelegraph.com/rss/tag/solana")
-        return feed.entries[:5]
+        return feed.entries[:6] # Increased to 6 for the bottom grid
     except: return []
 
 try:
@@ -64,9 +65,9 @@ def f(v, d=2): return f"${v:,.{d}f}"
 
 # --- MODULE 1: HEADER ---
 st.markdown(f"""
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="color: #FFFFFF; margin:0;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.4.1</span></h1>
-        <div style="text-align: right; color: {'#00FF7F' if status else '#FF4B4B'}; font-weight: bold;">● {'SYSTEM NOMINAL' if status else 'SAFE MODE'}</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h1 style="color: #FFFFFF; margin:0; letter-spacing:-1px;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.5</span></h1>
+        <div style="text-align: right; color: {'#00FF7F' if status else '#FF4B4B'}; font-weight: bold; font-family: 'JetBrains Mono';">● {'SYSTEM NOMINAL' if status else 'SAFE MODE'}</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -94,64 +95,77 @@ bias_colors = {"Neutral": "#D4AF37", "Bullish": "#00FF7F", "Bearish": "#FF4B4B"}
 neural_trend = "Bullish" if price > sol_stats['avg'] else "Bearish"
 
 if bias_choice == "Sentinel Auto":
-    if news_sent == "Panic": final_bias, sentinel_msg = "Neutral", "⚠️ SYSTEM OVERRIDE: Panic detected in News Feed. Safety ranges active."
+    if news_sent == "Panic": final_bias, sentinel_msg = "Neutral", "⚠️ SYSTEM OVERRIDE: Panic detected. Range expanded for capital safety."
     elif news_sent == "Bullish" and neural_trend == "Bullish": final_bias, sentinel_msg = "Bullish", "✅ CONFLUENCE: Trend and Sentiment aligned."
     else: final_bias, sentinel_msg = "Neutral", "⚖️ BALANCED: Sentinel optimizing for steady yield."
 else:
     final_bias, sentinel_msg = bias_choice, "👤 MANUAL: Sentinel in observation mode."
 
-# --- MAIN DASHBOARD LAYOUT ---
-col_main, col_news = st.columns([2, 1])
+# --- MAIN DASHBOARD (WIDE) ---
+ai_lev = 2.0
+vol_mult = 3.5 if news_sent in ["Panic", "Euphoria"] else 2.5
+auto_l, auto_h = price - (current_atr * vol_mult), price + (current_atr * vol_mult)
+ai_liq = price / ai_lev if final_bias == "Bullish" else price * (1 - (1/ai_lev))
 
-with col_main:
-    ai_lev = 2.0
-    vol_mult = 3.5 if news_sent in ["Panic", "Euphoria"] else 2.5
-    auto_l, auto_h = price - (current_atr * vol_mult), price + (current_atr * vol_mult)
-    ai_liq = price / ai_lev if final_bias == "Bullish" else price * (1 - (1/ai_lev))
+st.markdown(f"""
+<div class="ai-card" style="--b-col: {bias_colors.get(final_bias)};">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span class="label-tag">{final_bias} BIAS</span>
+            <h3 style="margin: 15px 0 5px 0; color: #888; font-size: 14px;">SENTINEL AI RANGE FORECAST</h3>
+            <div class="metric-val" style="color: {bias_colors.get(final_bias)};">{f(auto_l)} <span style="color:#333; font-size:28px;">/</span> {f(auto_h)}</div>
+            <div class="sentinel-box">{sentinel_msg}</div>
+        </div>
+        <div style="text-align: right; background: rgba(255,75,75,0.1); padding: 20px; border-radius: 12px; border: 1px solid #FF4B4B;">
+            <div style="color: #FF4B4B; font-size: 11px; font-weight: 900; letter-spacing: 1px;">LIQUIDATION FLOOR</div>
+            <div style="font-size: 32px; font-weight: 700; color: #FFF; font-family: 'JetBrains Mono';">{f(ai_liq)}</div>
+            <div style="color: #888; font-size: 10px; margin-top: 5px;">AI LOCKED AT 2.0x</div>
+        </div>
+    </div>
+</div>""", unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div class="ai-card" style="--b-col: {bias_colors.get(final_bias)};">
-        <span class="label-tag">{final_bias} BIAS</span>
-        <h3 style="margin: 10px 0 5px 0; color: #888; font-size: 14px;">SENTINEL AI RANGE FORECAST</h3>
-        <div class="metric-val" style="color: {bias_colors.get(final_bias)};">{f(auto_l)} <span style="color:#444; font-size:24px;">/</span> {f(auto_h)}</div>
-        <div class="sentinel-box">{sentinel_msg}</div>
-    </div>""", unsafe_allow_html=True)
+st.subheader("✍️ Manual Sandbox Control")
+m_range = st.slider("", float(price*0.3), float(price*1.7), value=(float(auto_l), float(auto_h)), label_visibility="collapsed")
+m_l, m_h = m_range
 
-    st.subheader("✍️ Manual Sandbox")
-    m_range = st.slider("", float(price*0.3), float(price*1.7), value=(float(auto_l), float(auto_h)), label_visibility="collapsed")
-    m_l, m_h = m_range
+# --- YIELD COMPARISON (WIDE) ---
+st.markdown("### 📊 Performance Comparison")
+k1, k2 = st.columns(2)
+def calc_yield(l, h, leverage):
+    width = max(h - l, 0.01)
+    base_fee = (user_capital * leverage * 0.0001) * ((price * 0.45) / width)
+    return {"Timeframe": ["1 Hour", "3 Hours", "1 Day", "1 Week", "1 Month"], "Profit": [f(base_fee), f(base_fee*3), f(base_fee*24), f(base_fee*168), f(base_fee*720)]}
 
-    st.markdown("### 📊 Performance Comparison")
-    k1, k2 = st.columns(2)
-    def calc_yield(l, h, leverage):
-        width = max(h - l, 0.01)
-        base_fee = (user_capital * leverage * 0.0001) * ((price * 0.45) / width)
-        return {"Time": ["1h", "1d", "1w", "1m"], "Profit": [f(base_fee), f(base_fee*24), f(base_fee*168), f(base_fee*720)]}
+with k1:
+    st.markdown(f"**🤖 AI Strategy** (Locked 2.0x)")
+    st.table(pd.DataFrame(calc_yield(auto_l, auto_h, 2.0)))
+with k2:
+    st.markdown(f"**👤 Manual Setup** ({manual_lev}x)")
+    st.table(pd.DataFrame(calc_yield(m_l, m_h, manual_lev)))
 
-    with k1:
-        st.write("**🤖 AI (Locked 2x)**")
-        st.table(pd.DataFrame(calc_yield(auto_l, auto_h, 2.0)))
-    with k2:
-        st.write(f"**👤 Manual ({manual_lev}x)**")
-        st.table(pd.DataFrame(calc_yield(m_l, m_h, manual_lev)))
-
-with col_news:
-    st.markdown("### 📰 Live Solana Feed")
-    if not NEWS_READY:
-        st.warning("News Module loading... Please update requirements.txt")
+# --- MODULE 8: BOTTOM NEWS FEED ---
+st.markdown('<div class="news-footer">', unsafe_allow_html=True)
+st.markdown("### 📰 Live Market Sentiment Feed")
+if not NEWS_READY:
+    st.warning("News Module loading... Please update requirements.txt on GitHub.")
+else:
+    news_items = fetch_news()
+    if news_items:
+        st.markdown('<div class="news-grid">', unsafe_allow_html=True)
+        for entry in news_items:
+            st.markdown(f"""
+            <div class="news-card">
+                <div style="font-size: 11px; color: #7B00FF; font-weight: bold;">SOLANA NEWS</div>
+                <div style="font-size: 10px; color: #666; margin-top: 4px;">{entry.published[:16]}</div>
+                <a href="{entry.link}" target="_blank" class="news-link">{entry.title}</a>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        news_items = fetch_news()
-        if news_items:
-            for entry in news_items:
-                st.markdown(f"""
-                <div class="news-card">
-                    <div style="font-size: 10px; color: #888;">{entry.published[:16]}</div>
-                    <a href="{entry.link}" target="_blank" class="news-link">{entry.title[:70]}...</a>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("Searching for latest Solana news...")
+        st.info("Scanning for latest news events...")
+st.markdown('</div>', unsafe_allow_html=True)
 
+# --- MODULE 7: AUTO-SAVE LEDGER ---
 try:
     with open("strategy_ledger.txt", "a") as f_out:
         log = {"time": str(datetime.now().strftime("%H:%M:%S")), "price": price, "bias": final_bias}
