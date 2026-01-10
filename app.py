@@ -29,40 +29,44 @@ st.markdown(f"""
     .styled-table td {{ border: 1px solid #444; padding: 10px; text-align: center; font-family: monospace; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. DATA ENGINES (LOCKED + SAFETY SHIELD)
+# 2. DATA ENGINES (LOCKED + BULLETPROOF SAFETY)
 df, btc_p, btc_df, status = fetch_base_data('1d')
 
 def get_performance_stats(sol_df, btc_df):
-    # Safety Check: If DataFrames are empty, return placeholders
-    if sol_df is None or sol_df.empty or btc_df is None or btc_df.empty:
-        return {"sol": ["N/A"]*5, "btc": ["N/A"]*3}
+    # ULTIMATE SAFETY CHECK: Verify if variables are actually DataFrames
+    is_sol_valid = isinstance(sol_df, pd.DataFrame) and not sol_df.empty
+    is_btc_valid = isinstance(btc_df, pd.DataFrame) and not btc_df.empty
     
-    # SOL stats (Check if we have enough rows)
-    s_rows = len(sol_df)
-    sol_30_h = sol_df['high'].tail(min(30, s_rows)).max()
-    sol_30_l = sol_df['low'].tail(min(30, s_rows)).min()
-    sol_30_avg = sol_df['close'].tail(min(30, s_rows)).mean()
-    sol_today_h = sol_df['high'].iloc[-1]
-    sol_today_l = sol_df['low'].iloc[-1]
+    # Defaults
+    stats = {"sol": ["N/A"]*5, "btc": ["N/A"]*3}
+
+    if is_sol_valid:
+        s_rows = len(sol_df)
+        stats["sol"] = [
+            sol_df['high'].tail(min(30, s_rows)).max(),
+            sol_df['low'].tail(min(30, s_rows)).min(),
+            sol_df['close'].tail(min(30, s_rows)).mean(),
+            sol_df['high'].iloc[-1],
+            sol_df['low'].iloc[-1]
+        ]
     
-    # BTC stats
-    b_rows = len(btc_df)
-    btc_30_h = btc_df['high'].tail(min(30, b_rows)).max()
-    btc_30_l = btc_df['low'].tail(min(30, b_rows)).min()
-    btc_30_avg = btc_df['close'].tail(min(30, b_rows)).mean()
+    if is_btc_valid:
+        b_rows = len(btc_df)
+        stats["btc"] = [
+            btc_df['high'].tail(min(30, b_rows)).max(),
+            btc_df['low'].tail(min(30, b_rows)).min(),
+            btc_df['close'].tail(min(30, b_rows)).mean()
+        ]
     
-    return {
-        "sol": [sol_30_h, sol_30_l, sol_30_avg, sol_today_h, sol_today_l],
-        "btc": [btc_30_h, btc_30_l, btc_30_avg]
-    }
+    return stats
 
 if status:
     price = df['close'].iloc[-1]
     current_atr = (df['high']-df['low']).rolling(14).mean().iloc[-1]
     perf = get_performance_stats(df, btc_df)
     
-    # Formatting function for N/A values
-    def fmt(val, d=1): return f"${val:,.{d}f}" if isinstance(val, (int, float)) else val
+    # Formatting helper
+    def fmt(val, d=1): return f"${val:,.{d}f}" if isinstance(val, (int, float)) else "Loading..."
 
     # --- HEADER SECTION (LOCKED) ---
     st.title("🏹 Sreejan AI Forecaster Pro")
