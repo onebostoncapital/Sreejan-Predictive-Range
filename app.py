@@ -8,7 +8,7 @@ import json
 # MAGIC COMMAND:
 # streamlit run app.py
 
-# 1. STYLE & THEME (CLEAN & RESTORED)
+# 1. STYLE & THEME
 st.set_page_config(page_title="Sreejan AI Forecaster Pro", layout="wide")
 
 theme = st.sidebar.radio("Theme Mode", ["Dark Mode", "Light Mode"])
@@ -19,12 +19,13 @@ st.markdown(f"""
 <style>
     .stApp {{ background-color: {bg}; color: {txt} !important; }} 
     .glow-gold {{ font-weight: bold; text-shadow: 0 0 15px {accent}; font-family: monospace; font-size: 32px; }}
-    .ai-card {{ border: 2px solid var(--b-col); padding: 25px; border-radius: 15px; background: #050505; margin-bottom: 25px; box-shadow: 0 0 20px var(--b-col); }}
-    .manual-card {{ border: 2px solid #555; padding: 25px; border-radius: 15px; background: #0a0a0a; margin-bottom: 25px; }}
-    .liq-box {{ background: #440000; border: 1px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; color: white; }}
-    .tag {{ background: #222; color: #aaa; padding: 3px 10px; border-radius: 12px; font-size: 11px; border: 1px solid #444; margin-right: 8px; }}
-    .styled-table {{ width:100%; border-collapse: collapse; margin-top: 15px; }}
-    .styled-table td {{ border: 1px solid #444; padding: 12px; text-align: center; font-family: monospace; }}
+    .ai-card {{ border: 2px solid var(--b-col); padding: 25px; border-radius: 15px; background: #050505; margin-bottom: 20px; box-shadow: 0 0 20px var(--b-col); }}
+    .manual-card {{ border: 2px solid #555; padding: 20px; border-radius: 15px; background: #0a0a0a; margin-bottom: 20px; }}
+    .liq-box {{ background: #440000; border: 1px solid #ff4b4b; padding: 12px; border-radius: 8px; text-align: center; color: white; }}
+    .tag {{ background: #222; color: #aaa; padding: 3px 10px; border-radius: 12px; font-size: 11px; border: 1px solid #444; }}
+    .styled-table {{ width:100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }}
+    .styled-table th {{ background: #222; padding: 10px; border: 1px solid #444; color: #aaa; }}
+    .styled-table td {{ border: 1px solid #444; padding: 10px; text-align: center; font-family: monospace; }}
 </style>""", unsafe_allow_html=True)
 
 # 2. DATA ENGINE
@@ -39,7 +40,7 @@ if status:
     price = df['close'].iloc[-1]
     current_atr = calculate_atr(df)
     
-    # --- HEADER SECTION (RESTORED) ---
+    # --- HEADER SECTION ---
     st.title("🏹 Sreejan AI Forecaster Pro")
     c1, c2, c3 = st.columns(3)
     c1.metric("₿ BTC Price", f"${btc_p:,.2f}")
@@ -55,11 +56,10 @@ if status:
     
     liq_p = price * (1 - (1 / lev) * 0.45)
 
-    # 4. AI RANGE FORECAST SECTION
+    # 4. AI RANGE LOGIC
     v_pulse = "COILING" if current_atr < (df['high'].tail(5).mean() * 0.045) else "EXPANDING"
     ai_mult = 3.2 if v_pulse == "COILING" else 2.2
     
-    # Directional Logic Shift
     bias_shift = 0
     if bias == "Bullish": bias_shift = (current_atr * 0.7)
     if bias == "Bearish": bias_shift = -(current_atr * 0.7)
@@ -89,7 +89,7 @@ if status:
     </div>
     """, unsafe_allow_html=True)
 
-    # 5. MANUAL MODE SECTION
+    # 5. MANUAL OVERRIDE
     st.markdown('<div class="manual-card">', unsafe_allow_html=True)
     st.subheader("✍️ Manual Range Control")
     if 'v_range' not in st.session_state: st.session_state.v_range = (float(auto_l), float(auto_h))
@@ -99,29 +99,47 @@ if status:
     m_l, m_h = m_range
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 6. PROFIT MATRIX
-    def calculate_yield(width_val):
-        daily = (cap * lev * 0.0017) * ((price * 0.35) / max(width_val, 0.01))
-        return {"1 Day": daily, "1 Week": daily*7}
+    # 6. DETAILED PROFIT TABLES (RESTORED)
+    def get_time_projections(low, high):
+        width = max(high - low, 0.01)
+        # Base fee calculation logic
+        base_hourly = (cap * lev * 0.00007) * ((price * 0.35) / width)
+        return {
+            "1 Hour": base_hourly,
+            "3 Hours": base_hourly * 3,
+            "1 Day": base_hourly * 24,
+            "1 Week": base_hourly * 24 * 7,
+            "1 Month": base_hourly * 24 * 30
+        }
 
-    st.subheader("📊 Profit Comparison")
+    st.subheader("📊 Yield Comparison Matrix")
     t1, t2 = st.columns(2)
-    res_a = calculate_yield(auto_h - auto_l)
-    res_m = calculate_yield(m_h - m_l)
+    ai_vals = get_time_projections(auto_l, auto_h)
+    man_vals = get_time_projections(m_l, m_h)
 
     with t1:
-        st.info(f"🤖 AI Yield: ${res_a['1 Day']:,.2f}/day")
-    with t2:
-        st.success(f"✍️ Manual Yield: ${res_m['1 Day']:,.2f}/day")
+        st.markdown(f"<h4 style='color:{c_color}'>🤖 AI Strategy Yield</h4>", unsafe_allow_html=True)
+        rows_ai = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td></tr>" for k, v in ai_vals.items()])
+        st.markdown(f'<table class="styled-table"><th>Timeframe</th><th>Est. Profit</th>{rows_ai}</table>', unsafe_allow_html=True)
 
-    # 7. LEDGER & RISK AUDIT
-    ledger_entry = {"time": str(datetime.now()), "bias": bias, "range": [round(m_l, 2), round(m_h, 2)], "lev": lev}
+    with t2:
+        st.markdown("<h4 style='color:#555'>✍️ Manual Strategy Yield</h4>", unsafe_allow_html=True)
+        rows_man = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td></tr>" for k, v in man_vals.items()])
+        st.markdown(f'<table class="styled-table"><th>Timeframe</th><th>Est. Profit</th>{rows_man}</table>', unsafe_allow_html=True)
+
+    # 7. LEDGER & RISK
+    ledger_entry = {
+        "time": str(datetime.now()),
+        "bias": bias,
+        "manual_range": [round(m_l, 2), round(m_h, 2)],
+        "daily_profit": round(man_vals["1 Day"], 2)
+    }
     with open("strategy_ledger.txt", "a") as f:
         f.write(json.dumps(ledger_entry) + "\n")
 
     if m_l <= liq_p:
-        st.error(f"🚨 RISK ALERT: Manual Low is too close to Liquidation!")
+        st.error(f"🚨 RISK ALERT: Manual Low (${m_l:,.2f}) is below Liquidation Floor!")
     else:
-        st.sidebar.success("✅ Strategy Logged & Compliant")
+        st.sidebar.success("✅ Strategy Logged to Ledger")
 
     st.sidebar.link_button("🔙 Main Hub", "https://defi-tuna-apper-bohsifbb9dawewnwd56uo5.streamlit.app/")
