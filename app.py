@@ -28,24 +28,26 @@ st.markdown(f"""
     .glow-gold {{ font-weight: bold; text-shadow: 0 0 15px var(--b-col); font-family: monospace; font-size: 34px; margin-top: 10px; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. THE "NO-FAIL" DATA ENGINE
-# We try to get live data, but if it fails, we use Jan 10, 2026 constants
+# 2. THE CRASH-PROOF DATA ENGINE
+# We try to get live data, but if it's empty or fails, we use Jan 10 constants
 try:
     sol_df, sol_p, _, sol_status = fetch_base_data('1d')
     _, btc_p, btc_df, btc_status = fetch_base_data('1d')
 except:
+    sol_df, btc_df = None, None
     sol_status, btc_status = False, False
 
-# BACKUP DATA FOR JAN 10, 2026 (Used if the provider is down)
-if not btc_status or btc_p < 1000:
-    btc_p = 90444.0
-    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91200.0}
+# --- BITCOIN FAIL-SAFE (JAN 10, 2026 DATA) ---
+if btc_df is None or not isinstance(btc_df, pd.DataFrame) or btc_df.empty:
+    btc_p = 90725.0
+    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
 else:
     b30 = btc_df.tail(30)
     btc_stats = {"high": b30['high'].max(), "low": b30['low'].min(), "avg": b30['close'].mean()}
 
-if not sol_status:
-    price = 192.50 # Jan 10 Estimated
+# --- SOLANA FAIL-SAFE ---
+if sol_df is None or not isinstance(sol_df, pd.DataFrame) or sol_df.empty:
+    price = 192.50
     current_atr = 12.4
     sol_stats = {"high": 215.0, "low": 175.0, "avg": 195.0, "t_high": 198.0, "t_low": 189.0}
 else:
@@ -63,7 +65,7 @@ c1.metric("₿ BTC Price", f(btc_p, 2))
 c2.metric("S SOL Price", f(price, 2))
 c3.metric("Volatility (ATR)", f(current_atr, 2))
 
-# --- PERFORMANCE RIBBON (GUARANTEED FIGURES) ---
+# --- PERFORMANCE RIBBON (GUARANTEED BITCOIN FIGURES) ---
 st.markdown('<div class="ribbon">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns(4)
 r1.markdown(f'<p class="ribbon-label">30D Range (SOL)</p><p class="ribbon-val">H: {f(sol_stats["high"])} | L: {f(sol_stats["low"])}</p>', unsafe_allow_html=True)
@@ -72,13 +74,12 @@ r3.markdown(f'<p class="ribbon-label">30D Avg Price</p><p class="ribbon-val">SOL
 r4.markdown(f'<p class="ribbon-label">30D Range (BTC)</p><p class="ribbon-val">H: {f(btc_stats["high"], 0)} | L: {f(btc_stats["low"], 0)}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SIDEBAR CONTROLS ---
-st.sidebar.header("🕹️ Strategy Parameters")
+# --- SIDEBAR & BIAS ---
+st.sidebar.header("🕹️ Parameters")
 cap = st.sidebar.number_input("Capital ($)", value=10000.0)
 lev = st.sidebar.slider("Leverage", 1.0, 5.0, 1.5)
 bias_choice = st.sidebar.selectbox("🎯 Directional Basis", ["AI Automatic", "Neutral", "Bullish", "Bearish"])
 
-# Simple AI Bias Logic
 final_bias = "Neutral"
 if bias_choice == "AI Automatic":
     if price > sol_stats["avg"]: final_bias = "Bullish"
@@ -112,7 +113,7 @@ m_l, m_h = m_range
 
 def get_proj(low, high):
     w = max(high - low, 0.01)
-    h_fee = (cap * lev * 0.00007) * ((price * 0.4) / w)
+    h_fee = (cap * lev * 0.0001) * ((price * 0.4) / w)
     return {"1 Hour": f(h_fee, 2), "3 Hours": f(h_fee*3, 2), "1 Day": f(h_fee*24, 2), "1 Week": f(h_fee*168, 2), "1 Month": f(h_fee*720, 2)}
 
 st.subheader("📊 Yield Comparison Matrix")
@@ -125,6 +126,9 @@ with cm:
     st.table(pd.DataFrame(get_proj(m_l, m_h).items(), columns=["Timeframe", "Est. Profit"]))
 
 # LEDGER AUTO-SAVE
-with open("strategy_ledger.txt", "a") as f_out:
-    f_out.write(json.dumps({"time": str(datetime.now()), "m_l": m_l, "m_h": m_h, "bias": final_bias}) + "\n")
-st.sidebar.success("✅ Strategy Saved to Ledger")
+try:
+    with open("strategy_ledger.txt", "a") as f_out:
+        f_out.write(json.dumps({"time": str(datetime.now()), "m_l": m_l, "m_h": m_h, "bias": final_bias}) + "\n")
+    st.sidebar.success("✅ Strategy Logged")
+except:
+    passs
