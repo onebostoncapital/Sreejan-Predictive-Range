@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 import json
 import streamlit.components.v1 as components
+import feedparser  # Ensure you have run: pip install feedparser
 
 # MAGIC COMMAND:
 # streamlit run app.py
@@ -28,24 +29,23 @@ def fetch_live_market_data():
     except: pass
     return 96000.0, 145.0, 8.5, {"high": 160, "low": 130, "avg": 140, "t_high": 148, "t_low": 142}, False
 
-# Trigger for Manual Refresh
 if st.sidebar.button("🔄 Force Live Sync"):
     st.cache_data.clear()
 
 btc_p, sol_p, atr, s_stats, live_status = fetch_live_market_data()
 
-# --- 2. THE UI STYLING (LOCKED) ---
+# --- 2. THE UI STYLING ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Inter:wght@400;700&display=swap');
     .stApp { background: #05070a; color: #e0e0e0; font-family: 'Inter'; }
     .header-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 5px; }
-    .ai-card { background: linear-gradient(145deg, #0d1117, #010203); border-left: 5px solid var(--bias-col); padding: 25_px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .ai-card { background: linear-gradient(145deg, #0d1117, #010203); border-left: 5px solid var(--bias-col); padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .liq-box { background: rgba(255,75,75,0.1); border: 1px solid #FF4B4B; padding: 15px; border-radius: 10px; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- MODULE 1: REAL-TIME HEADER ---
+# --- MODULE 1: REAL-TIME HEADER (LOCKED) ---
 st.markdown(f'<div class="header-box">', unsafe_allow_html=True)
 h1, h2, h3 = st.columns(3)
 h1.metric("₿ BTC PRICE", f"${btc_p:,.0f}")
@@ -53,30 +53,19 @@ h2.metric("S SOL PRICE", f"${sol_p:,.2f}")
 h3.metric("📉 LIVE ATR", f"${atr:,.2f}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- NEW SEPARATE MODULE: LIVE TECHNICAL SENTINEL ---
-# Positioned exactly below the prices, dynamic and moving with the market.
+# --- NEW MODULE: LIVE TECHNICAL SENTINEL (LOCKED) ---
 st.markdown("### 🧬 Live Technical Sentinel (Solana)")
 tradingview_gauge = """
 <div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-  {
-  "interval": "1m",
-  "width": "100%",
-  "isTransparent": true,
-  "height": 380,
-  "symbol": "BINANCE:SOLUSDT",
-  "showIntervalTabs": true,
-  "displayMode": "single",
-  "locale": "en",
-  "colorTheme": "dark"
-}
+  {"interval": "1m", "width": "100%", "isTransparent": true, "height": 380, "symbol": "BINANCE:SOLUSDT", "showIntervalTabs": true, "displayMode": "single", "locale": "en", "colorTheme": "dark"}
   </script>
 </div>
 """
 components.html(tradingview_gauge, height=400)
 
-# --- MODULE 2: DYNAMIC PERFORMANCE RIBBON ---
+# --- MODULE 2: DYNAMIC PERFORMANCE RIBBON (LOCKED) ---
 st.markdown(f"""
 <div style="display:flex; justify-content: space-around; background: #111; padding: 10px; border-radius: 5px; font-size: 12px; color: #888; border: 1px solid #222; margin-bottom: 20px;">
     <span>🏔️ 30D HIGH: ${s_stats['high']:.2f}</span>
@@ -92,7 +81,8 @@ capital = st.sidebar.number_input("Capital ($)", value=10000)
 manual_lev = st.sidebar.slider("Manual Leverage", 1.0, 10.0, 3.0)
 bias_manual = st.sidebar.selectbox("Directional Bias", ["Sentinel AI", "Bullish", "Bearish", "Neutral"])
 
-# --- MODULE 3 & 4: AI ENGINE & FORECAST CARD ---
+# --- MODULE 3 & 4: AI ENGINE & FORECAST CARD (LOCKED) ---
+# RULE: Bullish if Price > 30D Avg
 ai_bias = "Bullish" if sol_p > s_stats['avg'] else "Bearish"
 final_bias = ai_bias if bias_manual == "Sentinel AI" else bias_manual
 b_color = "#00FF7F" if final_bias == "Bullish" else "#FF4B4B" if final_bias == "Bearish" else "#D4AF37"
@@ -116,11 +106,11 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- MODULE 5: MANUAL CONTROL ---
+# --- MODULE 5: MANUAL CONTROL (LOCKED) ---
 st.subheader("✍️ Manual Range Adjustment")
 m_range = st.slider("Select Liquidity Zone", float(sol_p*0.3), float(sol_p*1.7), (float(ai_low), float(ai_high)))
 
-# --- MODULE 6: YIELD MATRIX ---
+# --- MODULE 6: YIELD MATRIX (LOCKED) ---
 st.markdown("### 📊 Profit Comparison Matrix")
 t1, t2 = st.columns(2)
 def get_yield_df(l, h, lev):
@@ -134,19 +124,19 @@ with t2:
     st.write(f"**👤 Manual Strategy ({manual_lev}x)**")
     st.table(get_yield_df(m_range[0], m_range[1], manual_lev))
 
-# --- MODULE 7: NEWS FEED (FIXED & PERSISTENT) ---
+# --- MODULE 7: PERSISTENT NEWS (REBUILT FOR STABILITY) ---
 st.markdown("---")
-st.markdown("### 📰 Solana Ecosystem News")
+st.markdown("### 📰 Solana Ecosystem Live News")
 try:
-    news_url = "https://api.coingecko.com/api/v3/news"
-    news_data = requests.get(news_url, timeout=5).json()
-    if 'data' in news_data:
-        for item in news_data['data'][:3]:
-            with st.expander(f"📌 {item['title'][:80]}..."):
-                st.write(item['description'][:250] + "...")
-                st.write(f"[Read full story]({item['url']})")
+    feed = feedparser.parse("https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml")
+    if feed.entries:
+        n_col1, n_col2 = st.columns(2)
+        for i, entry in enumerate(feed.entries[:4]):
+            target = n_col1 if i % 2 == 0 else n_col2
+            with target:
+                st.info(f"🔗 **{entry.title}**\n\n[Read full article]({entry.link})")
 except:
-    st.info("News feed is temporarily refreshing...")
+    st.error("News Feed is refreshing. Please wait...")
 
 # --- MODULE 8: STRATEGY LEDGER (AUTO-SAVE) ---
 try:
@@ -154,4 +144,4 @@ try:
         log = {"timestamp": str(datetime.now()), "sol_price": sol_p, "bias": final_bias, "manual_range": m_range}
         f.write(json.dumps(log) + "\n")
 except: pass
-st.toast("Strategy Auto-Saved to Ledger", icon="💾")
+st.toast("Strategy Auto-Saved", icon="💾")
