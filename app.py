@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from data_engine import fetch_base_data
+import yfinance as yf
 from datetime import datetime
 import json
 
@@ -17,7 +17,56 @@ except ImportError:
 
 st.set_page_config(page_title="Sreejan AI Sentinel Pro", layout="wide")
 
-# 1. FLASHY UI STYLING (LOCKED & ENHANCED)
+# --- LIVE DATA ENGINE (IMPROVED FOR DYNAMIC PRICES) ---
+@st.cache_data(ttl=30) # Refresh every 30 seconds
+def fetch_live_market_data():
+    try:
+        # Fetching SOL and BTC simultaneously
+        tickers = yf.Tickers('SOL-USD BTC-USD')
+        sol_data = tickers.tickers['SOL-USD'].history(period='30d', interval='1d')
+        btc_data = tickers.tickers['BTC-USD'].history(period='30d', interval='1d')
+        
+        if not sol_data.empty and not btc_data.empty:
+            return sol_data, btc_data, True
+        return None, None, False
+    except Exception as e:
+        return None, None, False
+
+# UI REFRESH TRIGGER
+if st.sidebar.button("🔄 Force Market Refresh"):
+    st.cache_data.clear()
+
+sol_df, btc_df, status = fetch_live_market_data()
+
+# Logic for Stats (LOCKED BUT NOW DYNAMIC)
+if status:
+    # LIVE DYNAMIC PRICES
+    price = sol_df['Close'].iloc[-1]
+    btc_p = btc_df['Close'].iloc[-1]
+    
+    # ATR CALCULATION
+    current_atr = (sol_df['High'] - sol_df['Low']).rolling(14).mean().iloc[-1]
+    
+    # STATS MAPPING
+    s30 = sol_df.tail(30)
+    sol_stats = {
+        "high": s30['High'].max(), 
+        "low": s30['Low'].min(), 
+        "avg": s30['Close'].mean(), 
+        "t_high": sol_df['High'].iloc[-1], 
+        "t_low": sol_df['Low'].iloc[-1]
+    }
+    b30 = btc_df.tail(30)
+    btc_stats = {"high": b30['High'].max(), "low": b30['Low'].min(), "avg": b30['Close'].mean()}
+else:
+    # FALLBACK (ONLY IF INTERNET FAILS)
+    btc_p, price, current_atr = 90729.0, 135.84, 8.45
+    sol_stats = {"high": 142.50, "low": 129.10, "avg": 134.20, "t_high": 138.95, "t_low": 134.02}
+    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
+
+def f(v, d=2): return f"${v:,.{d}f}"
+
+# 1. FLASHY UI STYLING (LOCKED)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;700&display=swap');
@@ -31,52 +80,25 @@ st.markdown("""
     .news-card { background: rgba(255,255,255,0.04); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; height: 100%; }
     .news-card:hover { background: rgba(123, 0, 255, 0.05); border-color: #7B00FF; transform: translateY(-3px); }
     .news-link { color: #BB86FC !important; text-decoration: none; font-weight: bold; font-size: 14px; display: block; margin-top: 8px; }
-    .sentinel-box { background: rgba(123, 0, 255, 0.08); border-radius: 8px; padding: 12px; border: 1px solid rgba(123, 0, 255, 0.3); margin-top: 15px; color: #C197FF; font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
-
-# 2. DATA ENGINES
-@st.cache_data(ttl=600)
-def fetch_news():
-    if not NEWS_READY: return []
-    try:
-        feed = feedparser.parse("https://cointelegraph.com/rss/tag/solana")
-        return feed.entries[:6] # Increased to 6 for the bottom grid
-    except: return []
-
-try:
-    sol_df, sol_p, btc_df, status = fetch_base_data('1d')
-except:
-    sol_df, btc_df, status = None, None, False
-
-# Logic for Stats (LOCKED)
-if not status or sol_df is None:
-    btc_p, price, current_atr = 90729.0, 135.84, 8.45
-    sol_stats = {"high": 142.50, "low": 129.10, "avg": 134.20, "t_high": 138.95, "t_low": 134.02}
-    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
-else:
-    price = sol_df['close'].iloc[-1]
-    current_atr = (sol_df['high']-sol_df['low']).rolling(14).mean().iloc[-1]
-    s30, b30 = sol_df.tail(30), btc_df.tail(30)
-    sol_stats = {"high": s30['high'].max(), "low": s30['low'].min(), "avg": s30['close'].mean(), "t_high": sol_df['high'].iloc[-1], "t_low": sol_df['low'].iloc[-1]}
-    btc_p, btc_stats = btc_df['close'].iloc[-1], {"high": b30['high'].max(), "low": b30['low'].min(), "avg": b30['close'].mean()}
-
-def f(v, d=2): return f"${v:,.{d}f}"
 
 # --- MODULE 1: HEADER ---
 st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-        <h1 style="color: #FFFFFF; margin:0; letter-spacing:-1px;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.5</span></h1>
-        <div style="text-align: right; color: {'#00FF7F' if status else '#FF4B4B'}; font-weight: bold; font-family: 'JetBrains Mono';">● {'SYSTEM NOMINAL' if status else 'SAFE MODE'}</div>
+        <h1 style="color: #FFFFFF; margin:0; letter-spacing:-1px;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.6</span></h1>
+        <div style="text-align: right; color: {'#00FF7F' if status else '#FF4B4B'}; font-weight: bold; font-family: 'JetBrains Mono';">
+            ● {'LIVE MARKET FEED' if status else 'SAFE MODE (CONNECTION ERROR)'}
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns(3)
-c1.metric("₿ BITCOIN", f(btc_p, 0))
-c2.metric("S SOLANA", f(price, 2))
-c3.metric("⚡ VOLATILITY (ATR)", f(current_atr, 2))
+c1.metric("₿ BTC/USD", f(btc_p, 0))
+c2.metric("S SOL/USD", f(price, 2))
+c3.metric("⚡ LIVE ATR", f(current_atr, 2))
 
-# --- MODULE 2: PERFORMANCE RIBBON (LOCKED) ---
+# --- MODULE 2: PERFORMANCE RIBBON ---
 st.markdown('<div class="ribbon">', unsafe_allow_html=True)
 r1, r2, r3 = st.columns(3)
 r1.write(f"🏔️ **30D HIGH/LOW:** {f(sol_stats['high'])} — {f(sol_stats['low'])}")
@@ -84,7 +106,7 @@ r2.write(f"📅 **TODAY'S RANGE:** {f(sol_stats['t_high'])} — {f(sol_stats['t_
 r3.write(f"📊 **30D AVG:** SOL {f(sol_stats['avg'])} | BTC {f(btc_stats['avg'], 0)}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SIDEBAR CONTROLS ---
+# --- SIDEBAR & SENTINEL LOGIC ---
 st.sidebar.markdown("### 🛠️ STRATEGY ENGINE")
 user_capital = st.sidebar.number_input("Capital ($)", value=10000.0)
 manual_lev = st.sidebar.slider("Manual Leverage", 1.0, 10.0, 3.0)
@@ -114,7 +136,7 @@ st.markdown(f"""
             <span class="label-tag">{final_bias} BIAS</span>
             <h3 style="margin: 15px 0 5px 0; color: #888; font-size: 14px;">SENTINEL AI RANGE FORECAST</h3>
             <div class="metric-val" style="color: {bias_colors.get(final_bias)};">{f(auto_l)} <span style="color:#333; font-size:28px;">/</span> {f(auto_h)}</div>
-            <div class="sentinel-box">{sentinel_msg}</div>
+            <div style="background: rgba(123, 0, 255, 0.08); border-radius: 8px; padding: 12px; border: 1px solid rgba(123, 0, 255, 0.3); margin-top: 15px; color: #C197FF; font-style: italic;">{sentinel_msg}</div>
         </div>
         <div style="text-align: right; background: rgba(255,75,75,0.1); padding: 20px; border-radius: 12px; border: 1px solid #FF4B4B;">
             <div style="color: #FF4B4B; font-size: 11px; font-weight: 900; letter-spacing: 1px;">LIQUIDATION FLOOR</div>
@@ -128,7 +150,7 @@ st.subheader("✍️ Manual Sandbox Control")
 m_range = st.slider("", float(price*0.3), float(price*1.7), value=(float(auto_l), float(auto_h)), label_visibility="collapsed")
 m_l, m_h = m_range
 
-# --- YIELD COMPARISON (WIDE) ---
+# --- YIELD COMPARISON ---
 st.markdown("### 📊 Performance Comparison")
 k1, k2 = st.columns(2)
 def calc_yield(l, h, leverage):
@@ -143,29 +165,28 @@ with k2:
     st.markdown(f"**👤 Manual Setup** ({manual_lev}x)")
     st.table(pd.DataFrame(calc_yield(m_l, m_h, manual_lev)))
 
-# --- MODULE 8: BOTTOM NEWS FEED ---
+# --- BOTTOM NEWS FEED ---
+@st.cache_data(ttl=600)
+def fetch_news_data():
+    if not NEWS_READY: return []
+    try:
+        feed = feedparser.parse("https://cointelegraph.com/rss/tag/solana")
+        return feed.entries[:6]
+    except: return []
+
 st.markdown('<div class="news-footer">', unsafe_allow_html=True)
 st.markdown("### 📰 Live Market Sentiment Feed")
-if not NEWS_READY:
-    st.warning("News Module loading... Please update requirements.txt on GitHub.")
+news_items = fetch_news_data()
+if news_items:
+    st.markdown('<div class="news-grid">', unsafe_allow_html=True)
+    for entry in news_items:
+        st.markdown(f"""<div class="news-card"><div style="font-size: 11px; color: #7B00FF; font-weight: bold;">SOLANA NEWS</div><div style="font-size: 10px; color: #666; margin-top: 4px;">{entry.published[:16]}</div><a href="{entry.link}" target="_blank" class="news-link">{entry.title}</a></div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 else:
-    news_items = fetch_news()
-    if news_items:
-        st.markdown('<div class="news-grid">', unsafe_allow_html=True)
-        for entry in news_items:
-            st.markdown(f"""
-            <div class="news-card">
-                <div style="font-size: 11px; color: #7B00FF; font-weight: bold;">SOLANA NEWS</div>
-                <div style="font-size: 10px; color: #666; margin-top: 4px;">{entry.published[:16]}</div>
-                <a href="{entry.link}" target="_blank" class="news-link">{entry.title}</a>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.info("Scanning for latest news events...")
+    st.info("Scanning for latest news events...")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- MODULE 7: AUTO-SAVE LEDGER ---
+# --- AUTO-SAVE LEDGER ---
 try:
     with open("strategy_ledger.txt", "a") as f_out:
         log = {"time": str(datetime.now().strftime("%H:%M:%S")), "price": price, "bias": final_bias}
