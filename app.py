@@ -8,137 +8,111 @@ import json
 # MAGIC COMMAND:
 # streamlit run app.py
 
-# 1. STYLE & THEME (PROMINENT BIAS DESIGN)
+# 1. STYLE & THEME
 st.set_page_config(page_title="Sreejan AI Forecaster Pro", layout="wide")
 
 theme = st.sidebar.radio("Theme Mode", ["Dark Mode", "Light Mode"])
 bg, txt, accent = ("#000000", "#FFFFFF", "#D4AF37") if theme == "Dark Mode" else ("#FFFFFF", "#000000", "#D4AF37")
-
-# Custom Dynamic Styling for Bias
 bias_color = {"Neutral": "#D4AF37", "Bullish": "#00FF7F", "Bearish": "#FF4B4B"}
 
 st.markdown(f"""
 <style>
     .stApp {{ background-color: {bg}; color: {txt} !important; }} 
-    .glow-gold {{ font-weight: bold; text-shadow: 0 0 15px {accent}; font-family: monospace; font-size: 32px; }}
-    .bias-card {{ border: 3px solid #333; padding: 20px; border-radius: 15px; background: #111; text-align: center; margin-bottom: 10px; }}
-    .ai-card {{ border: 2px solid var(--bias-color); padding: 25px; border-radius: 15px; background: #050505; margin-bottom: 25px; box-shadow: 0 0 20px var(--bias-color); }}
-    .manual-card {{ border: 2px solid #555; padding: 25px; border-radius: 15px; background: #0a0a0a; margin-bottom: 25px; }}
-    .liq-box {{ background: #440000; border: 1px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; color: white; }}
+    .glow-text {{ font-weight: bold; font-family: monospace; font-size: 32px; }}
+    .ai-card {{ border: 2px solid var(--b-col); padding: 25px; border-radius: 15px; background: #050505; margin-bottom: 25px; box-shadow: 0 0 20px var(--b-col); }}
     .tag {{ background: #222; color: #aaa; padding: 3px 10px; border-radius: 12px; font-size: 11px; border: 1px solid #444; margin-right: 8px; }}
-    .styled-table {{ width:100%; border-collapse: collapse; margin-top: 15px; }}
-    .styled-table td {{ border: 1px solid #444; padding: 12px; text-align: center; font-family: monospace; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. DATA ENGINE
+# 2. DATA & AI INTELLIGENCE ENGINE
 df, btc_p, _, status = fetch_base_data('1d')
 
-def calculate_atr(df):
-    h_l, h_c, l_c = df['high']-df['low'], np.abs(df['high']-df['close'].shift()), np.abs(df['low']-df['close'].shift())
-    tr = pd.concat([h_l, h_c, l_c], axis=1).max(axis=1)
-    return tr.rolling(14).mean().iloc[-1]
+def get_ai_bias(df):
+    # Rule 45: Trend Score Logic
+    close = df['close']
+    sma20 = close.rolling(window=20).mean().iloc[-1]
+    
+    # Simple RSI Calculation
+    delta = close.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs.iloc[-1]))
+    
+    current_p = close.iloc[-1]
+    
+    if current_p > sma20 and rsi > 55: return "Bullish", rsi
+    elif current_p < sma20 and rsi < 45: return "Bearish", rsi
+    else: return "Neutral", rsi
 
 if status:
     price = df['close'].iloc[-1]
-    current_atr = calculate_atr(df)
+    # TRIGGER AI BIAS
+    auto_bias, rsi_val = get_ai_bias(df)
     
-    # --- COMMAND CENTER HEADER ---
-    st.title("🏹 Sreejan AI: Directional Forecaster")
-    
-    # 3. DIRECTIONAL BIAS COMMAND CENTER (PROMINENT)
-    col_a, col_b, col_c = st.columns([1, 2, 1])
-    
-    with col_a:
-        st.markdown('<div class="bias-card">', unsafe_allow_html=True)
-        bias = st.radio("🎯 SELECT MARKET BIAS", ["Neutral", "Bullish", "Bearish"], horizontal=False)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Calculate AI Logic with Bias Shift
-    v_pulse = "COILING" if current_atr < (df['high'].tail(5).mean() * 0.045) else "EXPANDING"
-    ai_mult = 3.2 if v_pulse == "COILING" else 2.2
+    # 3. AI RANGE CALCULATION
+    h_l = df['high']-df['low']
+    current_atr = h_l.rolling(14).mean().iloc[-1]
+    ai_mult = 2.2 if rsi_val > 60 or rsi_val < 40 else 3.2 # Tighter in trends
     
     # Apply Directional Rule 40
     bias_shift = 0
-    if bias == "Bullish": bias_shift = (current_atr * 0.7) # Shift UP
-    if bias == "Bearish": bias_shift = -(current_atr * 0.7) # Shift DOWN
+    if auto_bias == "Bullish": bias_shift = (current_atr * 0.7)
+    if auto_bias == "Bearish": bias_shift = -(current_atr * 0.7)
 
     auto_l = price - (current_atr * ai_mult) + bias_shift
     auto_h = price + (current_atr * ai_mult) + bias_shift
-    current_b_color = bias_color[bias]
+    c_color = bias_color[auto_bias]
 
-    with col_b:
+    # 4. DASHBOARD DISPLAY
+    st.title("🏹 Sreejan AI: Autonomous Forecaster")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
         st.markdown(f"""
-        <div class="ai-card" style="--bias-color: {current_b_color};">
+        <div class="ai-card" style="--b-col: {c_color};">
             <div style="display: flex; justify-content: space-between;">
-                <span class="tag" style="color:{current_b_color}; border-color:{current_b_color};">MODE: {bias.upper()}</span>
-                <span class="tag">VOLATILITY: {v_pulse}</span>
+                <span class="tag" style="color:{c_color}; border-color:{c_color};">AI DETECTED BIAS: {auto_bias.upper()}</span>
+                <span class="tag">RSI: {rsi_val:.1f}</span>
             </div>
-            <h2 style="margin-top:15px; color:{current_b_color};">🤖 AI Range Forecast</h2>
-            <span class="glow-gold" style="text-shadow: 0 0 15px {current_b_color}; color:{current_b_color};">
+            <h2 style="margin-top:15px; color:{c_color};">🤖 Auto-Range Prediction</h2>
+            <span class="glow-text" style="color:{c_color}; text-shadow: 0 0 15px {c_color};">
                 ${auto_l:,.2f} — ${auto_h:,.2f}
             </span>
-            <p style="font-size: 12px; margin-top:10px; opacity:0.6;">Directional offset applied: {bias_shift:+.2f} SOL</p>
+            <p style="font-size: 13px; opacity:0.7; margin-top:10px;">
+                AI has positioned your liquidity to the <b>{auto_bias}</b> side based on current momentum.
+            </p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col_c:
-        # SIDEBAR CONTROLS
+    with col2:
         st.sidebar.header("🕹️ Strategy Parameters")
         cap = st.sidebar.number_input("Total Capital ($)", value=10000.0)
         lev = st.sidebar.slider("Leverage Slider", 1.0, 5.0, 1.5)
         liq_p = price * (1 - (1 / lev) * 0.45)
         
-        st.markdown(f"""
-        <div class="liq-box">
-            <span style="font-size: 11px;">LIQUIDATION FLOOR</span><br>
-            <span style="font-size: 20px;">${liq_p:,.2f}</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric("SOL Price", f"${price:,.2f}")
+        st.error(f"Liquidation Floor: ${liq_p:,.2f}")
 
-    # 4. MANUAL MODE MODULE
-    st.markdown('<div class="manual-card">', unsafe_allow_html=True)
-    st.subheader("✍️ Manual Range Control")
-    if 'v_range' not in st.session_state: st.session_state.v_range = (float(auto_l), float(auto_h))
+    # 5. MANUAL OVERRIDE & COMPARISON
+    st.subheader("✍️ Manual Settings & Profit Matrix")
+    m_range = st.slider("Manual Zone Adjust", float(price*0.1), float(price*1.9), value=(float(auto_l), float(auto_h)))
     
-    m_range = st.slider("Drag to set Manual Zone", float(price*0.1), float(price*1.9), value=st.session_state.v_range, step=0.01)
-    st.session_state.v_range = m_range
-    m_l, m_h = m_range
-    st.markdown('</div>', unsafe_allow_html=True)
+    def calc_yield(w):
+        d = (cap * lev * 0.0017) * ((price * 0.35) / w)
+        return {"Daily": d, "Weekly": d*7}
 
-    # 5. PROFIT COMPARISON
-    def calculate_yield(width_val):
-        daily = (cap * lev * 0.0017) * ((price * 0.35) / width_val)
-        return {"1 Day": daily, "1 Week": daily*7, "1 Month": daily*30}
+    res_a = calc_yield(auto_h - auto_l)
+    res_m = calc_yield(m_range[1] - m_range[0])
 
-    st.subheader("📊 Yield Projection (AI vs Manual)")
-    t1, t2 = st.columns(2)
-    res_a = calculate_yield(auto_h - auto_l)
-    res_m = calculate_yield(m_h - m_l)
+    c_a, c_m = st.columns(2)
+    c_a.info(f"🤖 AI Yield ({auto_bias}): ${res_a['Daily']:,.2f}/day")
+    c_m.success(f"✍️ Manual Yield: ${res_m['Daily']:,.2f}/day")
 
-    with t1:
-        st.info(f"🤖 {bias} AI Yield")
-        rows_a = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td></tr>" for k, v in res_a.items()])
-        st.markdown(f'<table class="styled-table">{rows_a}</table>', unsafe_allow_html=True)
-    with t2:
-        st.success("✍️ Manual Mode Yield")
-        rows_m = "".join([f"<tr><td>{k}</td><td>${v:,.2f}</td></tr>" for k, v in res_m.items()])
-        st.markdown(f'<table class="styled-table" style="border: 1px solid {accent};">{rows_m}</table>', unsafe_allow_html=True)
-
-    # 6. AUTO-SAVE TO LEDGER
-    ledger_entry = {
-        "time": datetime.now().strftime("%H:%M:%S"),
-        "bias": bias,
-        "lev": lev,
-        "range": [round(m_l, 2), round(m_h, 2)],
-        "status": "COMPLIANT" if m_l > liq_p else "RISK"
-    }
+    # 6. AUTO-SAVE LEDGER
+    entry = {"time": str(datetime.now()), "ai_bias": auto_bias, "range": m_range, "p_day": res_m['Daily']}
     with open("strategy_ledger.txt", "a") as f:
-        f.write(json.dumps(ledger_entry) + "\n")
+        f.write(json.dumps(entry) + "\n")
 
-    # 7. RISK AUDITOR
-    if m_l <= liq_p:
-        st.error(f"🚨 NON-COMPLIANT: Manual Low (${m_l:,.2f}) is below Liquidation (${liq_p:,.2f})")
-    else:
-        st.sidebar.success("✅ Ledger Auto-Saved")
-
+    st.sidebar.success("✅ AI Bias & Ledger Synced")
     st.sidebar.link_button("🔙 Main Hub", "https://defi-tuna-apper-bohsifbb9dawewnwd56uo5.streamlit.app/")
