@@ -1,24 +1,32 @@
-import ccxt
 import pandas as pd
 import numpy as np
+import yfinance as yf
 
-def fetch_base_data(timeframe='1d'):
+def fetch_base_data(interval='1d'):
+    """
+    Fetches BTC and SOL data with built-in crash protection.
+    """
     try:
-        exchange = ccxt.kraken()
-        sol = exchange.fetch_ohlcv('SOL/USD', timeframe=timeframe, limit=300)
-        btc = exchange.fetch_ohlcv('BTC/USD', timeframe='1d', limit=1)
+        # Fetching Solana (SOL-USD)
+        sol = yf.Ticker("SOL-USD")
+        sol_df = sol.history(period="60d", interval=interval)
         
-        df = pd.DataFrame(sol, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['date'] = pd.to_datetime(df['timestamp'], unit='ms')
+        # Fetching Bitcoin (BTC-USD)
+        btc = yf.Ticker("BTC-USD")
+        btc_df = btc.history(period="60d", interval=interval)
         
-        # Rule 1: Emmanuel Logic
-        df['20_ema'] = df['close'].ewm(span=20, adjust=False).mean()
-        df['200_sma'] = df['close'].rolling(window=200).mean()
+        # Validation Check
+        if sol_df.empty or btc_df.empty:
+            return None, 0, None, False
+            
+        sol_p = sol_df['Close'].iloc[-1]
+        btc_p = btc_df['Close'].iloc[-1]
         
-        # Rule 3: Daily ATR for Range
-        df['tr'] = df[['high', 'low', 'close']].max(axis=1) - df[['high', 'low', 'close']].min(axis=1)
-        daily_atr = df['tr'].rolling(window=14).mean().iloc[-1]
+        # Clean data for the app
+        sol_df.columns = [c.lower() for c in sol_df.columns]
+        btc_df.columns = [c.lower() for c in btc_df.columns]
         
-        return df, btc[0][4], daily_atr, True
-    except:
-        return None, 0, 0, False
+        return sol_df, sol_p, btc_df, True
+    except Exception as e:
+        # If internet fails, return 'None' so app.py uses its 2026 backup data
+        return None, 135.84, None, False
