@@ -8,9 +8,9 @@ import json
 # MAGIC COMMAND:
 # streamlit run app.py
 
-# 1. UI ENGINE (LOCKED & RESTORED)
-st.set_page_config(page_title="Sreejan AI Multi-Logic Pro", layout="wide")
+st.set_page_config(page_title="Sreejan AI Predictive Engine", layout="wide")
 
+# 1. UI STYLING
 theme = st.sidebar.radio("Theme Mode", ["Dark Mode", "Light Mode"])
 bg, txt = ("#000000", "#FFFFFF") if theme == "Dark Mode" else ("#FFFFFF", "#000000")
 bias_color = {"Neutral": "#D4AF37", "Bullish": "#00FF7F", "Bearish": "#FF4B4B"}
@@ -28,36 +28,22 @@ st.markdown(f"""
     .glow-gold {{ font-weight: bold; text-shadow: 0 0 15px var(--b-col); font-family: monospace; font-size: 34px; margin-top: 10px; }}
 </style>""", unsafe_allow_html=True)
 
-# 2. HYBRID DATA ENGINE (SAFETY UPGRADED)
+# 2. DATA LOAD & 3-PILLAR INTEGRATION
 try:
-    sol_df, sol_p, _, sol_status = fetch_base_data('1d')
-    _, btc_p, btc_df, btc_status = fetch_base_data('1d')
-except Exception:
-    sol_df, btc_df = None, None
-    sol_p, btc_p = 135.84, 90729.0
+    sol_df, sol_p, btc_df, status = fetch_base_data('1d')
+except:
+    sol_df, btc_df, status = None, None, False
 
-# --- DATA FAIL-SAFE (STRICTER CHECKS) ---
-# If BTC data is missing, use manual 2026 data
-if btc_df is None:
-    btc_p = 90729.0
-    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
-elif btc_df.empty:
-    btc_p = 90729.0
-    btc_stats = {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
+# --- FAIL-SAFE (LOCKED JAN 10, 2026 DATA) ---
+if not status or sol_df is None or btc_df is None:
+    btc_p, btc_stats = 90729.0, {"high": 95000.0, "low": 88000.0, "avg": 91340.0}
+    price, current_atr = 135.84, 8.45
+    sol_stats = {"high": 142.50, "low": 129.10, "avg": 134.20, "t_high": 138.95, "t_low": 134.02}
+    st.sidebar.warning("Connecting to Price Feed... Using Safe-Mode Data.")
 else:
     b30 = btc_df.tail(30)
+    btc_p = btc_df['close'].iloc[-1]
     btc_stats = {"high": b30['high'].max(), "low": b30['low'].min(), "avg": b30['close'].mean()}
-
-# If SOL data is missing, use manual 2026 data
-if sol_df is None:
-    price = 135.84
-    current_atr = 8.45
-    sol_stats = {"high": 142.50, "low": 129.10, "avg": 134.20, "t_high": 138.95, "t_low": 134.02}
-elif sol_df.empty:
-    price = 135.84
-    current_atr = 8.45
-    sol_stats = {"high": 142.50, "low": 129.10, "avg": 134.20, "t_high": 138.95, "t_low": 134.02}
-else:
     price = sol_df['close'].iloc[-1]
     current_atr = (sol_df['high']-sol_df['low']).rolling(14).mean().iloc[-1]
     s30 = sol_df.tail(30)
@@ -65,7 +51,7 @@ else:
 
 def f(v, d=2): return f"${v:,.{d}f}"
 
-# --- MODULE 1 & 2: HEADER & RIBBON ---
+# --- MODULE 1 & 2: HEADER & PERFORMANCE RIBBON ---
 st.title("🏹 Sreejan AI Predictive Engine")
 c1, c2, c3 = st.columns(3)
 c1.metric("₿ BTC Price", f(btc_p, 0))
@@ -80,7 +66,7 @@ r3.markdown(f'<p class="ribbon-label">30D Avg Price</p><p class="ribbon-val">SOL
 r4.markdown(f'<p class="ribbon-label">BTC 30D Range</p><p class="ribbon-val">H: {f(btc_stats["high"], 0)} | L: {f(btc_stats["low"], 0)}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- MODULE 3: STRENGTHENED AI ENGINE ---
+# --- MODULE 3: AI INTELLIGENCE ENGINE (STRENGTHENED LOGIC) ---
 st.sidebar.header("🕹️ Parameters")
 cap = st.sidebar.number_input("Capital ($)", value=10000.0)
 lev = st.sidebar.slider("Leverage", 1.0, 5.0, 1.5)
@@ -90,7 +76,6 @@ if bias_choice == "Integrated AI Auto":
     base_is_bullish = price > sol_stats["avg"]
     is_exhausted_up = price > (sol_stats["high"] - (current_atr * 0.5))
     is_exhausted_down = price < (sol_stats["low"] + (current_atr * 0.5))
-    
     if base_is_bullish and not is_exhausted_up: final_bias = "Bullish"
     elif not base_is_bullish and not is_exhausted_down: final_bias = "Bearish"
     else: final_bias = "Neutral"
@@ -120,11 +105,11 @@ st.markdown(f"""
 st.subheader("✍️ Manual Adjust (Confluence)")
 m_l, m_h = st.slider("Manual Setting", float(price*0.5), float(price*1.5), value=(float(auto_l), float(auto_h)))
 
-# --- MODULE 6: YIELD MATRIX ---
+# --- MODULE 6: YIELD MATRIX (DETAILED COMPARISON) ---
 def get_proj(low, high):
     w = max(high - low, 0.01)
     h_fee = (cap * lev * 0.0001) * ((price * 0.38) / w) 
-    return {"1 Hour": f(h_fee, 2), "1 Day": f(h_fee*24, 2), "1 Week": f(h_fee*168, 2), "1 Month": f(h_fee*720, 2)}
+    return {"1 Hour": f(h_fee, 2), "3 Hours": f(h_fee*3, 2), "1 Day": f(h_fee*24, 2), "1 Week": f(h_fee*168, 2), "1 Month": f(h_fee*720, 2)}
 
 st.subheader("📊 Yield Comparison Matrix")
 ca, cm = st.columns(2)
