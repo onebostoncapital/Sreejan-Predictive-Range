@@ -4,7 +4,13 @@ import numpy as np
 from data_engine import fetch_base_data
 from datetime import datetime
 import json
-import feedparser  # New requirement: pip install feedparser
+
+# SAFETY CHECK FOR NEWS TOOL
+try:
+    import feedparser
+    NEWS_READY = True
+except ImportError:
+    NEWS_READY = False
 
 # MAGIC COMMAND:
 # pip install feedparser
@@ -31,10 +37,10 @@ st.markdown("""
 # 2. DATA ENGINES
 @st.cache_data(ttl=600)
 def fetch_news():
+    if not NEWS_READY: return []
     try:
-        # Pulling from a reliable Crypto RSS Feed
         feed = feedparser.parse("https://cointelegraph.com/rss/tag/solana")
-        return feed.entries[:5] # Get top 5 stories
+        return feed.entries[:5]
     except: return []
 
 try:
@@ -59,7 +65,7 @@ def f(v, d=2): return f"${v:,.{d}f}"
 # --- MODULE 1: HEADER ---
 st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="color: #FFFFFF; margin:0;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.4</span></h1>
+        <h1 style="color: #FFFFFF; margin:0;">🏹 SENTINEL PRO <span style="font-weight:200; font-size:18px; color:#888;">v10.4.1</span></h1>
         <div style="text-align: right; color: {'#00FF7F' if status else '#FF4B4B'}; font-weight: bold;">● {'SYSTEM NOMINAL' if status else 'SAFE MODE'}</div>
     </div>
 """, unsafe_allow_html=True)
@@ -98,7 +104,6 @@ else:
 col_main, col_news = st.columns([2, 1])
 
 with col_main:
-    # --- MODULE 4: AI FORECAST CARD (LOCKED) ---
     ai_lev = 2.0
     vol_mult = 3.5 if news_sent in ["Panic", "Euphoria"] else 2.5
     auto_l, auto_h = price - (current_atr * vol_mult), price + (current_atr * vol_mult)
@@ -112,7 +117,6 @@ with col_main:
         <div class="sentinel-box">{sentinel_msg}</div>
     </div>""", unsafe_allow_html=True)
 
-    # --- MODULE 5 & 6: MANUAL & YIELD MATRIX (LOCKED) ---
     st.subheader("✍️ Manual Sandbox")
     m_range = st.slider("", float(price*0.3), float(price*1.7), value=(float(auto_l), float(auto_h)), label_visibility="collapsed")
     m_l, m_h = m_range
@@ -133,19 +137,21 @@ with col_main:
 
 with col_news:
     st.markdown("### 📰 Live Solana Feed")
-    news_items = fetch_news()
-    if news_items:
-        for entry in news_items:
-            st.markdown(f"""
-            <div class="news-card">
-                <div style="font-size: 10px; color: #888;">{entry.published[:16]}</div>
-                <a href="{entry.link}" target="_blank" class="news-link">{entry.title[:70]}...</a>
-            </div>
-            """, unsafe_allow_html=True)
+    if not NEWS_READY:
+        st.warning("News Module loading... Please update requirements.txt")
     else:
-        st.info("Searching for latest Solana news...")
+        news_items = fetch_news()
+        if news_items:
+            for entry in news_items:
+                st.markdown(f"""
+                <div class="news-card">
+                    <div style="font-size: 10px; color: #888;">{entry.published[:16]}</div>
+                    <a href="{entry.link}" target="_blank" class="news-link">{entry.title[:70]}...</a>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("Searching for latest Solana news...")
 
-# --- MODULE 7: AUTO-SAVE LEDGER (LOCKED) ---
 try:
     with open("strategy_ledger.txt", "a") as f_out:
         log = {"time": str(datetime.now().strftime("%H:%M:%S")), "price": price, "bias": final_bias}
